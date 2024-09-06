@@ -1,3 +1,21 @@
+
+```shell
+python -m train.train_mdm --save_dir save/my_name --dataset humanact12 --cond_mask_prob 0 --lambda_rcxyz 1 --lambda_vel 1 --lambda_fc 1  --unconstrained
+```
+
+
+
+
+
+
+```shell
+python -m sample.generate --model_path ./save/unconstrained/model000450000.pt --num_samples 10 --num_repetitions 3
+```
+
+
+
+
+
 # MDM: Human Motion Diffusion Model
 
 

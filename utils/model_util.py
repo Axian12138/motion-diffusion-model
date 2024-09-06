@@ -1,4 +1,4 @@
-from model.mdm import MDM
+from model.mrm import MRM
 from diffusion import gaussian_diffusion as gd
 from diffusion.respace import SpacedDiffusion, space_timesteps
 from utils.parser_util import get_cond_mode
@@ -11,43 +11,45 @@ def load_model_wo_clip(model, state_dict):
 
 
 def create_model_and_diffusion(args, data):
-    model = MDM(**get_model_args(args, data))
+    model = MRM(**get_model_args_mrm(args))
     diffusion = create_gaussian_diffusion(args)
     return model, diffusion
 
 
-def get_model_args(args, data):
+def get_model_args_mrm(args):
 
     # default args
-    clip_version = 'ViT-B/32'
+    # clip_version = 'ViT-B/32'
     action_emb = 'tensor'
-    cond_mode = get_cond_mode(args)
-    if hasattr(data.dataset, 'num_actions'):
-        num_actions = data.dataset.num_actions
-    else:
-        num_actions = 1
+    cond_mode = 'none'
+    # if hasattr(data.dataset, 'num_actions'):
+    #     num_actions = data.dataset.num_actions
+    # else:
+    num_actions = 1
 
     # SMPL defaults
     data_rep = 'rot6d'
-    njoints = 25
-    nfeats = 6
+    njoints = 28
+    nfeats = 1
 
-    if args.dataset == 'humanml':
-        data_rep = 'hml_vec'
-        njoints = 263
-        nfeats = 1
-    elif args.dataset == 'kit':
-        data_rep = 'hml_vec'
-        njoints = 251
-        nfeats = 1
+    # if args.dataset == 'humanml':
+    #     data_rep = 'hml_vec'
+    #     njoints = 263
+    #     nfeats = 1
+    # elif args.dataset == 'kit':
+    #     data_rep = 'hml_vec'
+    #     njoints = 251
+    #     nfeats = 1
+    args.use_latent = args.human_data_path is not None
 
     return {'modeltype': '', 'njoints': njoints, 'nfeats': nfeats, 'num_actions': num_actions,
             'translation': True, 'pose_rep': 'rot6d', 'glob': True, 'glob_rot': True,
-            'latent_dim': args.latent_dim, 'ff_size': 1024, 'num_layers': args.layers, 'num_heads': 4,
-            'dropout': 0.1, 'activation': "gelu", 'data_rep': data_rep, 'cond_mode': cond_mode,
+            # 'use_fp16': args.use_fp16, 'use_latent': args.use_latent,
+            # 'sigma_max': args.sigma_max, 'sigma_min': args.sigma_min,
+            'latent_dim': args.num_channels, 'ff_size': 1024, 'num_layers': args.layers, 'num_heads': 4,
+            'dropout': args.dropout, 'activation': "gelu", 'data_rep': data_rep, 'cond_mode': cond_mode,
             'cond_mask_prob': args.cond_mask_prob, 'action_emb': action_emb, 'arch': args.arch,
-            'emb_trans_dec': args.emb_trans_dec, 'clip_version': clip_version, 'dataset': args.dataset}
-
+            'emb_trans_dec': args.emb_trans_dec}#, 'dataset': args.dataset}
 
 def create_gaussian_diffusion(args):
     # default params

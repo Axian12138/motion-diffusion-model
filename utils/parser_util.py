@@ -98,15 +98,20 @@ def add_model_options(parser):
 
 def add_data_options(parser):
     group = parser.add_argument_group('dataset')
-    group.add_argument("--dataset", default='humanml', choices=['humanml', 'kit', 'humanact12', 'uestc'], type=str,
+    group.add_argument("--recycle_data_path", default='', type=str,
                        help="Dataset name (choose from list).")
-    group.add_argument("--data_dir", default="", type=str,
+    group.add_argument("--retarget_data_path", default="", type=str,
                        help="If empty, will use defaults according to the specified dataset.")
+    group.add_argument("--human_data_path", default="", type=str,
+                       help="If empty, will use defaults according to the specified dataset.")
+    group.add_argument("--num_workers", default=8, type=int, help="num_workers")
+    group.add_argument("--normalize", default=False, type=bool, help="num_workers")
+    group.add_argument("--overlap", default=8, type=int, help="num_workers")
 
 
 def add_training_options(parser):
     group = parser.add_argument_group('training')
-    group.add_argument("--save_dir", required=True, type=str,
+    group.add_argument("--exp", required=True, type=str,
                        help="Path to save checkpoints and results.")
     group.add_argument("--overwrite", action='store_true',
                        help="If True, will enable to use an already existing save_dir.")
