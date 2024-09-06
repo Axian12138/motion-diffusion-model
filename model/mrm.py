@@ -143,68 +143,9 @@ class MRM(nn.Module):
             return cond * (1. - mask)
         else:
             return cond
-
-
-    def forward_bk(self, x, timesteps, y=None, xT=None):
-        """
-        x: [batch_size, njoints, nfeats, max_frames], denoted x_t in the paper
-        timesteps: [batch_size] (int)
-        """
-        # breakpoint()
-        # bs, njoints, nfeats, nframes = x.shape
-        bs, nframes, njoints  = x.shape
-        # emb = self.embed_timestep(timesteps)  # [1, bs, d]
-        # breakpoint()
-        emb = self.embed_timestep(timestep_embedding(timesteps, self.model_channels)).unsqueeze(0)
-
-        # force_mask = y.get('uncond', False)
-        # if 'text' in self.cond_mode:
-        #     if 'text_embed' in y.keys():  # caching option
-        #         enc_text = y['text_embed']
-        #     else:
-        #         enc_text = self.encode_text(y['text'])
-        #     emb += self.embed_text(self.mask_cond(enc_text, force_mask=force_mask))
-        # if 'action' in self.cond_mode:
-        #     action_emb = self.embed_action(y['action'])
-        #     emb += self.mask_cond(action_emb, force_mask=force_mask)
-
-        if self.arch == 'gru':
-            x_reshaped = x.reshape(bs, njoints*nfeats, 1, nframes)
-            emb_gru = emb.repeat(nframes, 1, 1)     #[#frames, bs, d]
-            emb_gru = emb_gru.permute(1, 2, 0)      #[bs, d, #frames]
-            emb_gru = emb_gru.reshape(bs, self.latent_dim, 1, nframes)  #[bs, d, 1, #frames]
-            x = torch.cat((x_reshaped, emb_gru), axis=1)  #[bs, d+joints*feat, 1, #frames]
-
-        x = x.type(self.dtype)
-        x = self.input_process(x)
-
-        if self.arch == 'trans_enc':
-            # adding the timestep embed
-            xseq = torch.cat((emb, x), axis=0)  # [seqlen+1, bs, d]
-            xseq = self.sequence_pos_encoder(xseq)  # [seqlen+1, bs, d]
-            output = self.seqTransEncoder(xseq)[1:]  # , src_key_padding_mask=~maskseq)  # [seqlen, bs, d]
-
-        elif self.arch == 'trans_dec':
-            if self.emb_trans_dec:
-                xseq = torch.cat((emb, x), axis=0)
-            else:
-                xseq = x
-            xseq = self.sequence_pos_encoder(xseq)  # [seqlen+1, bs, d]
-            if self.emb_trans_dec:
-                output = self.seqTransDecoder(tgt=xseq, memory=emb)[1:] # [seqlen, bs, d] # FIXME - maybe add a causal mask
-            else:
-                output = self.seqTransDecoder(tgt=xseq, memory=emb)
-        elif self.arch == 'gru':
-            xseq = x
-            xseq = self.sequence_pos_encoder(xseq)  # [seqlen, bs, d]
-            output, _ = self.gru(xseq)
-        # breakpoint()
-        output = self.output_process(output)  # [bs, njoints, nfeats, nframes]
-
-        return output
     
 
-    def forward(self, x, timesteps, xT=None):
+    def forward(self, x, timesteps, xT, cond=None):
         """
         x: [batch_size, njoints, nfeats, max_frames], denoted x_t in the paper
         timesteps: [batch_size] (int)
@@ -244,14 +185,14 @@ class MRM(nn.Module):
         
         elif self.arch == 'trans':
 
-            xTseq = torch.cat((emb, xT), axis=0)  # [seqlen+1, bs, d]
-            xTseq = self.sequence_pos_encoder(xTseq)  # [seqlen+1, bs, d]
+            # xTseq = torch.cat((emb, xT), axis=0)  # [seqlen+1, bs, d]
+            xTseq = self.sequence_pos_encoder(xT)  # [seqlen, bs, d]
 
 
             xseq = torch.cat((emb, x), axis=0)  # [seqlen+1, bs, d]
             xseq = self.sequence_pos_encoder(xseq)  # [seqlen+1, bs, d]
-            xseq = self.seqTransEncoder(xseq) # , src_key_padding_mask=~maskseq)  # [seqlen, bs, d]
-            x = self.seqTransDecoder(tgt=xTseq, memory=xseq)[1:] # [seqlen, bs, d] # FIXME - maybe add a causal mask
+            xseq = self.seqTransEncoder(xseq)[1:] # , src_key_padding_mask=~maskseq)  # [seqlen, bs, d]
+            x = self.seqTransDecoder(tgt=xTseq, memory=xseq) # [seqlen, bs, d] # FIXME - maybe add a causal mask
         
         if not self.use_latent:
             x = self.output_process(x)  # [bs, njoints, nfeats, nframes]

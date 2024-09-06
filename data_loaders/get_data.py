@@ -54,7 +54,7 @@ def get_dataset_loader(
     human_data_path = None,
     load_pose=False,
     norm=True,
-    overlap=False,
+    overlap=-1,
 ):
     dataset = MotionDataset(recycle_data_path, retarget_data_path, train=True,human_data_path=human_data_path,load_pose=load_pose,norm=norm,overlap=overlap)
 
@@ -67,14 +67,13 @@ def get_dataset_loader(
 
     return loader
 
-
 class MotionDataset(torch.utils.data.Dataset):
     """A dataset class for paired image dataset.
     It assumes that the directory '/path/to/data/train' contains image pairs in the form of {A,B}.
     During test time, you need to prepare a directory '/path/to/data/test'.
     """
 
-    def __init__(self, recycle_data_path, retarget_data_path, train=True, human_data_path = None, load_pose = False, norm = False, overlap=False,):
+    def __init__(self, recycle_data_path, retarget_data_path, train=True, human_data_path = None, load_pose = False, norm = False, overlap=-1,):
         """Initialize this dataset class.
         Parameters:
             opt (Option class) -- stores all the experiment flags; needs to be a subclass of BaseOptions
@@ -116,8 +115,8 @@ class MotionDataset(torch.utils.data.Dataset):
         # start_id[1:] = torch.cumsum(target_length[:-1], dim=0)
         recycle_data_dict = joblib.load(recycle_data_path)
         retarget_data_path = joblib.load(retarget_data_path)
-        self.load_human = human_data_path != ''
-        if human_data_path != '':
+        self.load_human = human_data_path is not None
+        if human_data_path is not None:
             human_data_dict = joblib.load(human_data_path)
             # import pytorch_kinematics as pk
             # chain = pk.build_chain_from_urdf(open("/home/ubuntu/workspace/H1_RL/HST/legged_gym/resources/robots/h1/urdf/h1_add_hand_link_for_pk.urdf","rb").read())
@@ -149,7 +148,7 @@ class MotionDataset(torch.utils.data.Dataset):
             # right_ankle_tg = right_ankle_link.get_matrix()[:,:3,3]
             # get transform matrix (1,4,4), then convert to separate position and unit quaternion
 
-            if human_data_path != '':
+            if human_data_path is not None:
                 human_jt = human_data_dict[name]['local_rotation'].reshape(-1,(human_num_bodies-1)*6)
                 # target_jt_A[:,0] = 0
                 human_root = human_data_dict[name]['root_transformation']
@@ -173,7 +172,7 @@ class MotionDataset(torch.utils.data.Dataset):
         self.root_B = torch.cat(self.root_B, dim=0)
         self.jt_root_A = torch.concat([self.jt_A, self.root_A], dim=1).type(torch.float32)
         self.jt_root_B = torch.concat([self.jt_B, self.root_B], dim=1).type(torch.float32)
-        if human_data_path != '':
+        if human_data_path is not None:
             self.jt_C = torch.cat(self.jt_C, dim=0)
             self.root_C = torch.cat(self.root_C, dim=0)
             self.jt_root_C = torch.concat([self.jt_C, self.root_C], dim=1).type(torch.float32)
@@ -235,7 +234,7 @@ class MotionDataset(torch.utils.data.Dataset):
                 C = jt_root_C[pose_id]
         else:
             pose_id = torch.randint(motion_length - self.window_size+1, (1,))
-            if self.overlap:
+            if self.overlap >= 0:
                 breakpoint()
                 pose_id = pose_id//(self.window_size-self.overlap) * (self.window_size-self.overlap)
             # zero_pad_A = torch.zeros((self.max_length-motion_length, jt_root_A.shape[-1])).to(jt_root_A)

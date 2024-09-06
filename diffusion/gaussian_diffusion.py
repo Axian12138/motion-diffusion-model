@@ -212,6 +212,12 @@ class GaussianDiffusion:
         # print('mse_loss_val', mse_loss_val)
         return mse_loss_val
 
+    def mean_l2(self, a, b, mask):
+        # assuming a.shape == b.shape == bs, seqlen, J
+        # assuming mask.shape == bs, 1, 1
+        loss = self.l2_loss(a, b)
+        loss = loss.mean()
+        return loss
 
     def q_mean_variance(self, x_start, t):
         """
@@ -412,7 +418,7 @@ class GaussianDiffusion:
 
     def _scale_timesteps(self, t):
         if self.rescale_timesteps:
-            return t.float() * (1000.0 / self.num_timesteps)
+            return t.float() * (1.0 / self.num_timesteps)
         return t
 
     def condition_mean(self, cond_fn, p_mean_var, x, t, model_kwargs=None):
@@ -1241,15 +1247,16 @@ class GaussianDiffusion:
         :return: a dict with the key "loss" containing a tensor of shape [N].
                  Some mean or variance settings may also have other keys.
         """
-
+        bs, w, c = x_start.shape
+        mask = torch.ones((bs, 1, c), dtype=torch.bool)
         # enc = model.model._modules['module']
-        enc = model.model
-        mask = model_kwargs['y']['mask']
-        get_xyz = lambda sample: enc.rot2xyz(sample, mask=None, pose_rep=enc.pose_rep, translation=enc.translation,
-                                             glob=enc.glob,
-                                             # jointstype='vertices',  # 3.4 iter/sec # USED ALSO IN MotionCLIP
-                                             jointstype='smpl',  # 3.4 iter/sec
-                                             vertstrans=False)
+        # enc = model.model
+        # mask = model_kwargs['y']['mask']
+        # get_xyz = lambda sample: enc.rot2xyz(sample, mask=None, pose_rep=enc.pose_rep, translation=enc.translation,
+        #                                      glob=enc.glob,
+        #                                      # jointstype='vertices',  # 3.4 iter/sec # USED ALSO IN MotionCLIP
+        #                                      jointstype='smpl',  # 3.4 iter/sec
+        #                                      vertstrans=False)
 
         if model_kwargs is None:
             model_kwargs = {}
@@ -1258,7 +1265,7 @@ class GaussianDiffusion:
         x_t = self.q_sample(x_start, t, noise=noise)
 
         terms = {}
-
+        # breakpoint()
         if self.loss_type == LossType.KL or self.loss_type == LossType.RESCALED_KL:
             terms["loss"] = self._vb_terms_bpd(
                 model=model,
@@ -1304,14 +1311,14 @@ class GaussianDiffusion:
             }[self.model_mean_type]
             assert model_output.shape == target.shape == x_start.shape  # [bs, njoints, nfeats, nframes]
 
-            terms["rot_mse"] = self.masked_l2(target, model_output, mask) # mean_flat(rot_mse)
+            terms["rot_mse"] = self.mean_l2(target, model_output, mask) # mean_flat(rot_mse)
 
             target_xyz, model_output_xyz = None, None
 
             if self.lambda_rcxyz > 0.:
                 target_xyz = get_xyz(target)  # [bs, nvertices(vertices)/njoints(smpl), 3, nframes]
                 model_output_xyz = get_xyz(model_output)  # [bs, nvertices, 3, nframes]
-                terms["rcxyz_mse"] = self.masked_l2(target_xyz, model_output_xyz, mask)  # mean_flat((target_xyz - model_output_xyz) ** 2)
+                terms["rcxyz_mse"] = self.mean_l2(target_xyz, model_output_xyz, mask)  # mean_flat((target_xyz - model_output_xyz) ** 2)
 
             if self.lambda_vel_rcxyz > 0.:
                 if self.data_rep == 'rot6d' and dataset.dataname in ['humanact12', 'uestc']:

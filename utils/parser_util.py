@@ -61,6 +61,7 @@ def add_base_options(parser):
     group.add_argument("--device", default=0, type=int, help="Device id to use.")
     group.add_argument("--seed", default=10, type=int, help="For fixing random seed.")
     group.add_argument("--batch_size", default=64, type=int, help="Batch size during training.")
+    group.add_argument("--debug", default=True, type=bool, help="Use smaller sigma values.")
 
 
 def add_diffusion_options(parser):
@@ -107,6 +108,7 @@ def add_data_options(parser):
     group.add_argument("--num_workers", default=8, type=int, help="num_workers")
     group.add_argument("--normalize", default=False, type=bool, help="num_workers")
     group.add_argument("--overlap", default=8, type=int, help="num_workers")
+    group.add_argument("--dataset", default='xh', type=str, help="num_workers")
 
 
 def add_training_options(parser):

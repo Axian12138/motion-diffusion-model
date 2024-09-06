@@ -129,3 +129,23 @@ dmypy.json
 .pyre/
 
 save/
+
+# Other
+*.DS_Store
+wandb/
+pretrained/
+
+slurm*/
+*.png
+*.jpg
+
+*.ckpt
+
+.nfs*
+*.npz
+*.npy
+autoencoder/models*
+*.pt
+
+*.tar
+demo*/

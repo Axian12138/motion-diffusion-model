@@ -12,11 +12,13 @@ import json
 from utils.fixseed import fixseed
 from utils.parser_util import train_args
 from utils import dist_util
+import torch.distributed as dist
 from train.training_loop import TrainLoop
 from data_loaders.get_data import get_dataset_loader
 from utils.model_util import create_model_and_diffusion
 from train.train_platforms import ClearmlPlatform, TensorboardPlatform, NoPlatform  # required for the eval operation
 
+import wandb
 def main():
     args = train_args()
     fixseed(args.seed)
@@ -38,6 +40,7 @@ def main():
     dist_util.setup_dist(args.device)
 
     print("creating data loader...")
+    args.human_data_path=None if args.human_data_path == '' else args.human_data_path
     
     data = get_dataset_loader(
         recycle_data_path=args.recycle_data_path,
@@ -54,6 +57,16 @@ def main():
     model, diffusion = create_model_and_diffusion(args, data)
     model.to(dist_util.dev())
     # model.rot2xyz.smpl_model.eval()
+    if dist.get_rank() == 0:
+        name = args.exp if args.resume_checkpoint == "" else args.exp + '_resume'
+        wandb.init(project="bridge", 
+                   group=args.exp,
+                   name=name, 
+                    entity="axian",
+                   config=vars(args), 
+                   mode='online' if not args.debug else 'disabled')
+    # if dist.get_rank() == 0:
+        wandb.watch(model, log='all')
 
     print('Total params: %.2fM' % (sum(p.numel() for p in model.parameters_wo_clip()) / 1000000.0))
     print("Training...")

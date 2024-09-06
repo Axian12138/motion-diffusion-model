@@ -16,7 +16,7 @@ from diffusion.resample import LossAwareSampler, UniformSampler
 from tqdm import tqdm
 from diffusion.resample import create_named_schedule_sampler
 from data_loaders.humanml.networks.evaluator_wrapper import EvaluatorMDMWrapper
-from eval import eval_humanml, eval_humanact12_uestc
+# from eval import eval_humanml, eval_humanact12_uestc
 from data_loaders.get_data import get_dataset_loader
 
 
@@ -24,7 +24,7 @@ from data_loaders.get_data import get_dataset_loader
 # We found that the lg_loss_scale quickly climbed to
 # 20-21 within the first ~1K steps of training.
 INITIAL_LOG_LOSS_SCALE = 20.0
-
+import wandb
 
 class TrainLoop:
     def __init__(self, args, train_platform, model, diffusion, data):
@@ -126,18 +126,22 @@ class TrainLoop:
 
     def run_loop(self):
 
-        for epoch in range(self.num_epochs):
-            print(f'Starting epoch {epoch}')
-            for motion, cond in tqdm(self.data):
+        for epoch in tqdm(range(self.num_epochs)):
+            # print(f'Starting epoch {epoch}')
+            for x0, xT, cond in (self.data):
                 if not (not self.lr_anneal_steps or self.step + self.resume_step < self.lr_anneal_steps):
                     break
 
-                motion = motion.to(self.device)
-                cond['y'] = {key: val.to(self.device) if torch.is_tensor(val) else val for key, val in cond['y'].items()}
+                x0 = x0.to(self.device)
+                # cond['y'] = {key: val.to(self.device) if torch.is_tensor(val) else val for key, val in cond['y'].items()}
 
-                self.run_step(motion, cond)
+                cond = {'cond': cond,
+                        'xT': xT}
+                self.run_step(x0, cond)
                 if self.step % self.log_interval == 0:
-                    for k,v in logger.get_current().dumpkvs().items():
+                    logs = logger.dumpkvs()
+                    wandb.log(logs, step=self.step)
+                    for k,v in logs.items():
                         if k == 'loss':
                             print('step[{}]: loss[{:0.5f}]'.format(self.step+self.resume_step, v))
 
